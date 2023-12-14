@@ -11,3 +11,9 @@
 .fighter-preview___left {
   align-items: flex-start;
 }
+
+.fighter-preview___details {
+  background-color: #fff;
+  border: 10px;
+  align-self: center;
+}
