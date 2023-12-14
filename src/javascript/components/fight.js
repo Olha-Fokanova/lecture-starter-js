@@ -5,7 +5,7 @@ let keysPressed = {};
 const abstractPlayer = {
     health: 0,
     maxHealth: 0,
-    criticalHit: true,
+    canDoCritHit: true,
     fighter: {},
     healthBarId: '',
     actionKeys: {
@@ -20,11 +20,13 @@ const abstractPlayer = {
         return keysPressed.hasOwnProperty(this.actionKeys.block);
     },
     isAttack: function () {
-        return keysPressed.hasOwnProperty(this.actionKeys.attack) && !firstPlayerBlock();
+        return keysPressed.hasOwnProperty(this.actionKeys.attack) && !this.isBlock();
     },
     isCriticalHit: function () {
         let critComboKeysPushed = this.actionKeys.criticalHit.every(key => keysPressed.hasOwnProperty(key));
-        return critComboKeysPushed && this.crit;
+        const canCrit = critComboKeysPushed && this.canDoCritHit;
+        console.log(this.healthBarId, canCrit);
+        return canCrit;
     },
     isDead: function () {
         if (this.health < 1) {
@@ -36,9 +38,7 @@ const abstractPlayer = {
 
 export async function fight(firstFighter, secondFighter) {
     return new Promise(resolve => {
-        let firstHealth = firstFighter.health,
-            secondHealth = secondFighter.health;
-
+        // Initiate player 1
         const playerOne = Object.create(abstractPlayer);
         playerOne.fighter = firstFighter;
         playerOne.health = playerOne.fighter.health;
@@ -50,6 +50,7 @@ export async function fight(firstFighter, secondFighter) {
             criticalHit: controls.PlayerOneCriticalHitCombination
         };
 
+        // Initiate player 2
         const playerTwo = Object.create(abstractPlayer);
         playerTwo.fighter = secondFighter;
         playerTwo.health = playerTwo.fighter.health;
@@ -61,8 +62,36 @@ export async function fight(firstFighter, secondFighter) {
             criticalHit: controls.PlayerTwoCriticalHitCombination
         };
 
+        // Register key and do fight actions if given key is in action keys list
         window.addEventListener('keydown', event => {
             keysPressed[event.code] = true;
+
+            console.log(playerOne.health, playerTwo.health);
+
+            if (playerOne.isCriticalHit()) {
+                playerTwo.health -= playerOne.fighter.attack * 2;
+                playerTwo.updateHealthBar();
+                playerOne.canDoCritHit = false;
+                setTimeout(() => {
+                    playerOne.canDoCritHit = true;
+                }, 10 * 1000);
+
+                if (playerTwo.isDead()) {
+                    resolve(playerOne.fighter);
+                }
+                return;
+            }
+
+            if (playerTwo.isCriticalHit()) {
+                playerOne.health -= playerTwo.fighter.attack * 2;
+                playerTwo.updateHealthBar();
+                playerTwo.canDoCritHit = false;
+                setTimeout(() => {
+                    playerTwo.canDoCritHit = true;
+                }, 10 * 1000);
+                if (playerOne.isDead()) resolve(playerTwo.fighter);
+                return;
+            }
 
             switch (event.code) {
                 case controls.PlayerOneAttack:
@@ -91,40 +120,11 @@ export async function fight(firstFighter, secondFighter) {
             }
         });
 
+        // Unregister key
         window.addEventListener('keyup', event => {
             delete keysPressed[event.code];
         });
     });
-}
-
-// export function changeHealthBar(id, health, maxHealth) {
-//     document.getElementById(id).style.width = 100 * health / maxHealth + '%';
-// }
-
-export function firstPlayerBlock() {
-    return keysPressed.hasOwnProperty(controls.PlayerOneBlock);
-}
-
-export function firstPlayerCanAttack() {
-    return keysPressed.hasOwnProperty(controls.PlayerOneAttack) && !firstPlayerBlock();
-}
-
-export function firstPlayerCanCritHit() {
-    let critComboKeysPushed = controls.PlayerOneCriticalHitCombination.every(key => keysPressed.hasOwnProperty(key));
-    return critComboKeysPushed && playerOne.crit;
-}
-
-export function secondPlayerBlock() {
-    return keysPressed.hasOwnProperty(controls.PlayerTwoBlock);
-}
-
-export function secondPlayerCanAttack() {
-    return keysPressed.hasOwnProperty(controls.PlayerTwoAttack) && !secondPlayerBlock();
-}
-
-export function secondPlayerCanCritHit() {
-    let critComboKeysPushed = controls.PlayerTwoCriticalHitCombination.every(key => keysPressed.hasOwnProperty(key));
-    return critComboKeysPushed && playerOne.crit;
 }
 
 export function getDamage(attacker, defender) {
